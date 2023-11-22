@@ -1,0 +1,26 @@
+---
+- name: Update and Verify Packages
+  hosts: web_servers
+  become: true
+
+  tasks:
+    - name: Get the list of installed packages with security information
+      command: yum list-security
+      register: security_packages
+      changed_when: false  # Do not consider the task changed if there are no security updates
+
+    - name: Extract package names from the list
+      set_fact:
+        installed_packages: "{{ security_packages.stdout_lines[2:] | map('regex_replace', '^(\\S+).*$', '\\1') | list }}"
+
+    - name: Verify installed packages, excluding protected packages
+      yum:
+        name: "{{ item }}"
+        state: list
+      loop: "{{ installed_packages }}"
+
+    - name: Update installed packages, excluding protected packages
+      yum:
+        name: "{{ item }}"
+        state: latest
+      loop: "{{ installed_packages }}"
